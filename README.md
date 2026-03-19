@@ -1,75 +1,64 @@
-# Sistema de Faturas com Apache Kafka e NestJS
+# 🏦 Event-Driven Financial System (NestJS + Kafka + Docker)
 
-Este projeto é uma base para uma arquitetura de microsserviços orientada a eventos para um sistema de gestão de faturas, utilizando **Apache Kafka**.
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
 
-## Arquitetura (Fase 1)
+Um exemplo de arquitetura de microsserviços orientada a eventos para sistema financeiro.
 
-1. **Broker**: Apache Kafka rodando via Docker Compose acompanhado pelo Zookeeper.
-2. **Producer**: Um microsserviço independente construído em **NestJS** (porta 3001) que expõe uma API REST. Ao receber um POST de criação de fatura, ele formata o objeto e publica essa mensagem de forma assíncrona no tópico Kafka `faturas.criadas`.
+## 📐 Imagem da Arquitetura do Sistema
 
-## Como usar
+Abaixo a representação visual de como as peças se conversam pela rede do Docker via Mensageria Distribuída:
 
-### 1. Subir o ambiente Kafka
-Certifique-se de que o **Docker Desktop** está rodando na sua máquina.
+```mermaid
+graph LR
+    %% Nodes
+    A[Frontend UI<br/>Nginx: 8080] -->|1. POST /invoices| B(Producer API<br/>NestJS: 3001)
+    B -->|2. publish 'faturas.criadas'| C{Apache Kafka<br/>Broker: 9092}
+    C -->|3. subscribe Topic| D(Storage Consumer<br/>NestJS: 3002)
+    C -.->|Future Phase| E(Payment Consumer<br/>Porta: 3003)
+    D -->|4. TypeORM Save| F[(SQLite DB<br/>Volume)]
+    A -->|5. GET /invoices| D
+    
+    %% Styling
+    classDef ui fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
+    classDef api fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+    classDef broker fill:#1e1b4b,stroke:#a78bfa,stroke-width:2px,color:#fff
+    classDef db fill:#07405E,stroke:#fff,stroke-width:2px,color:#fff
+    
+    class A ui
+    class B,D,E api
+    class C broker
+    class F db
+```
 
-Abra o terminal na pasta raiz do projeto (`NestJS-AI`) e execute:
+## 🚀 Como Rodar (Tudo no Docker!)
+
+A arquitetura inteira foi conteinerizada com `docker-compose`. **Você não precisa** ter Node.js, NPM ou bancos de dados instalados localmente.
+
+### Passo Único
+Abra o seu terminal na raiz do projeto e execute:
 ```bash
-docker compose up -d
-```
-Isso irá subir o Kafka na porta `9092`.
-
-### 2. Rodar o Microsserviço Produtor (Producer)
-O microserviço Produtor (`invoice-producer`) é responsável por receber as chamadas HTTP e mandar para a fila do Kafka.
-
-Entre na pasta do microsserviço:
-```bash
-cd invoice-producer
+docker compose up -d --build
 ```
 
-Instale as dependências:
-```bash
-npm install
-```
+O Compose automaticamente irá baixar tudo, construir as imagens Node e subir **5 contêineres** em rede interna:
+1. **Zookeeper** (Gerenciamento de recursos do Kafka)
+2. **Kafka** (Broker de Mensagens Event-Driven)
+3. **Producer** (NestJS - Microsserviço Emissor de Faturas)
+4. **Consumer** (NestJS - Microsserviço de Armazenamento SQLite)
+5. **Frontend** (Nginx - Servidor de Arquivos da Interface UI)
 
-Inicie o servidor de desenvolvimento:
-```bash
-npm run start:dev
-```
-A API NestJS subirá escutando na porta **3001**. *(Aviso: No seu ambiente de código atual o NestJS já está rodando em background)*.
+### 💻 Acessando a Aplicação
+Após o comando finalizar, abra no seu navegador o endereço:
+👉 **[http://localhost:8080](http://localhost:8080)**
 
-### 3. Testar a criação de Faturas
-Com Kafka e o Producer NestJS rodando, use o Powershell para criar uma nova fatura. Abra uma nova aba no terminal e rode:
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3001/invoices" -Method Post -ContentType "application/json" -Body '{"amount": 150.00, "description": "Servicos de Consultoria"}' | ConvertTo-Json
-```
-
-A API deve retornar algo como:
-```json
-{
-  "success": true,
-  "message": "Invoice submitted to Kafka",
-  "invoice": { ...dados da fatura... }
-}
-```
-
-### 4. Verificar se a Fatura chegou na Fila
-Para ter a prova real de que o Apache Kafka armazenou a mensagem internamente no tópico `faturas.criadas`, você pode ler a fila em realtime executando:
-
-```bash
-docker exec -it nestjs-ai-kafka-1 kafka-console-consumer --bootstrap-server kafka:29092 --topic faturas.criadas --from-beginning
-```
-
----
-
-## Como foi feito (Resumo Técnico)
-
-A engenharia da Etapa 1 consistiu nos seguintes passos:
-
-1. **Infraestrutura**: Criamos o arquivo `docker-compose.yml` utilizando as imagens `confluentinc/cp-kafka` e `cp-zookeeper`. Foi ajustado o port binding `9092` pra acesso local (localhost) e a infra `29092` de rede interna Docker.
-2. **Scaffolding**: Utilizamos o comando `npx @nestjs/cli new invoice-producer --strict` não-interativo para gerar toda a malha inicial do projeto NestJS.
-3. **Drivers**: Instalamos os drivers Kafka nativos para comunicação de microsserviços através de `npm install @nestjs/microservices kafkajs`.
-4. **Bootstrapping do Tópico (`app.module.ts`)**: Registramos o cliente via injeção de dependências nativa do Nest com `ClientsModule.register`, apontando explicitamente pra broker `localhost:9092` no modo `producerOnlyMode: true`.
-5. **Configuração de Portas**: Modificamos o `main.ts` para que esse Worker do Produtor suba isoladamente na Porta 3001 ao ser chamado.
-6. **Mapeamento Lógico (`app.controller.ts`)**: Foi aberta uma rota `@Post()` limpa para interceptar os pagamentos e enviar o payload para a classe de serviço.
-7. **Integração do Evento (`app.service.ts`)**: A classe puxa a ref (`ClientKafka`) injetada via `@Inject`. Também implementamos a Lifecycle interop `OnModuleInit` e invocar `await this.kafkaClient.connect()`. Assim que a rota REST recebe os dados, o serviço adiciona data e serializa JSON por cima da função de push pra fila: `this.kafkaClient.emit('faturas.criadas', payload)`.
+## 🛠️ Entendendo a Mágica na Prática
+O fluxo assíncrono das Etapas 1 e 2 testáveis pelo HTML:
+- Você preenche o formulário no Frontend.
+- O Frontend bate na API do **Producer** (Porta 3001) enviando os dados.
+- O Producer formata o documento como JSON e publica a mensagem de forma rápida e assíncrona no tópico `faturas.criadas` do **Kafka**.
+- Imediatamente em background, o **Consumer 1** (que está escutando na rede internamente com o grupo `storage-consumer-group`) intercepta a mensagem recém-chegada.
+- O Consumer salva o registro fisicamente no repositório de banco SQLite mapeado na máquina.
+- A Coluna 2 (Storage) no seu HTML faz a validação dos dados puxando do Consumer na porta 3002, exibindo a carga definitiva.
