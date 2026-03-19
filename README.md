@@ -11,6 +11,8 @@ Um exemplo de arquitetura de microsserviços orientada a eventos para sistema fi
 
 Abaixo a representação visual de como as peças se conversam pela rede do Docker via Mensageria Distribuída:
 
+![Arquitetura do Sistema](./image.png)
+
 ```mermaid
 graph LR
     %% Nodes
