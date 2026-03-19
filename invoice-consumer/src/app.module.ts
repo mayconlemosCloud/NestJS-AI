@@ -8,7 +8,7 @@ import { Invoice } from './invoice.entity';
   imports: [
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: 'database.sqlite',
+      database: 'data/database.sqlite',
       entities: [Invoice],
       synchronize: true,
     }),
