@@ -1,8 +1,8 @@
-# Nestjs specific
-/dist
-/node_modules
-/build
-/tmp
+node_modules/
+dist/
+*.sqlite
+database.sqlite
+.DS_Store
 
 # Logs
 logs
@@ -13,12 +13,10 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# dotenv environment variable files
+# dotenv
 .env
-.env.development
-.env.test
-.env.production
+.env.*
 
-# temp directory
+# temp
 .temp
 .tmp
