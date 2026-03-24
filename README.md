@@ -1,66 +1,51 @@
-# 🏦 Event-Driven Financial System (NestJS + Kafka + Docker)
+# 🏦 Deep Finance - Kafka + Gemini AI + NestJS
 
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Apache_Kafka-231F20?style=for-the-badge&logo=apache-kafka&logoColor=white)
+![Gemini AI](https://img.shields.io/badge/Gemini_AI-4285F4?style=for-the-badge&logo=google-gemini&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white)
+![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
 
-Um exemplo de arquitetura de microsserviços orientada a eventos para sistema financeiro.
+Um ecossistema financeiro de alto desempenho focado em **Análise de Fraude em Tempo Real** utilizando Inteligência Artificial Generativa e arquitetura orientada a eventos.
 
-## 📐 Imagem da Arquitetura do Sistema
+## 📺 Demonstração em Tempo Real
+Veja o sistema em ação processando faturas e detectando fraudes com o Gemini 2.0:
 
-Abaixo a representação visual de como as peças se conversam pela rede do Docker via Mensageria Distribuída:
+![Demonstração do Sistema](./demo.webp)
 
-![Arquitetura do Sistema](./image.png)
+## 📐 Arquitetura do Sistema
+O projeto utiliza um fluxo de 3 agentes independentes que se comunicam via Kafka:
 
 ```mermaid
 graph LR
-    %% Nodes
-    A[Frontend UI<br/>Nginx: 8080] -->|1. POST /invoices| B(Producer API<br/>NestJS: 3001)
-    B -->|2. publish 'faturas.criadas'| C{Apache Kafka<br/>Broker: 9092}
-    C -->|3. subscribe Topic| D(Storage Consumer<br/>NestJS: 3002)
-    C -.->|Future Phase| E(Payment Consumer<br/>Porta: 3003)
-    D -->|4. TypeORM Save| F[(SQLite DB<br/>Volume)]
-    A -->|5. GET /invoices| D
-    
-    %% Styling
-    classDef ui fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#fff
-    classDef api fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
-    classDef broker fill:#1e1b4b,stroke:#a78bfa,stroke-width:2px,color:#fff
-    classDef db fill:#07405E,stroke:#fff,stroke-width:2px,color:#fff
-    
-    class A ui
-    class B,D,E api
-    class C broker
-    class F db
+    A[Frontend UI<br/>Nginx] -->|1. POST| B(Producer API<br/>& WS Gateway)
+    B -->|2. Event: Criada| K{Kafka<br/>Broker}
+    K -->|3. Consume| C(Bank Agent<br/>Persistence)
+    C -->|4. Save| S[(SQLite DB)]
+    C -->|5. Event: Salva| K
+    K -->|6. Consume| D(AI Agent<br/>Gemini 2.0)
+    D -->|7. Analysis| G((Google AI))
+    D -->|8. Update| S
+    D -->|9. Event: Finalizado| K
+    K -->|10. Bridge| B
+    B -->|11. Real-time Push| A
 ```
 
-## 🚀 Como Rodar (Tudo no Docker!)
+## 🚀 Componentes
+1. **`invoice-producer`**: Gateway de entrada e ponte WebSocket (Socket.io) para o Frontend.
+2. **`invoice-consumer`**: Agente Bancário responsável por persistir as faturas no banco de dados.
+3. **`invoice-updater`**: Agente de IA que utiliza o **Google Gemini** para detectar fraudes e atualizar o status final.
+4. **`invoice-frontend`**: Interface premium que acompanha todo o processo visualmente.
 
-A arquitetura inteira foi conteinerizada com `docker-compose`. **Você não precisa** ter Node.js, NPM ou bancos de dados instalados localmente.
+## ⚙️ Como Rodar
 
-### Passo Único
-Abra o seu terminal na raiz do projeto e execute:
-```bash
-docker compose up -d --build
-```
+1. Clone o repositório.
+2. Configure sua `GEMINI_API_KEY` no arquivo `.env`.
+3. Suba o ambiente completo:
+   ```bash
+   docker-compose up --build
+   ```
+4. Acesse: **[http://localhost:8080](http://localhost:8080)**
 
-O Compose automaticamente irá baixar tudo, construir as imagens Node e subir **5 contêineres** em rede interna:
-1. **Zookeeper** (Gerenciamento de recursos do Kafka)
-2. **Kafka** (Broker de Mensagens Event-Driven)
-3. **Producer** (NestJS - Microsserviço Emissor de Faturas)
-4. **Consumer** (NestJS - Microsserviço de Armazenamento SQLite)
-5. **Frontend** (Nginx - Servidor de Arquivos da Interface UI)
-
-### 💻 Acessando a Aplicação
-Após o comando finalizar, abra no seu navegador o endereço:
-👉 **[http://localhost:8080](http://localhost:8080)**
-
-## 🛠️ Entendendo a Mágica na Prática
-O fluxo assíncrono das Etapas 1 e 2 testáveis pelo HTML:
-- Você preenche o formulário no Frontend.
-- O Frontend bate na API do **Producer** (Porta 3001) enviando os dados.
-- O Producer formata o documento como JSON e publica a mensagem de forma rápida e assíncrona no tópico `faturas.criadas` do **Kafka**.
-- Imediatamente em background, o **Consumer 1** (que está escutando na rede internamente com o grupo `storage-consumer-group`) intercepta a mensagem recém-chegada.
-- O Consumer salva o registro fisicamente no repositório de banco SQLite mapeado na máquina.
-- A Coluna 2 (Storage) no seu HTML faz a validação dos dados puxando do Consumer na porta 3002, exibindo a carga definitiva.
+## 🛡️ Segurança
+As chaves de API e configurações sensíveis são gerenciadas via variáveis de ambiente (`.env`) e nunca são expostas no código fonte ou imagens Docker.

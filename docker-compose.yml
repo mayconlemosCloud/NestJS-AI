@@ -23,6 +23,21 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  kafka-setup:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+        echo 'Aguardando Kafka...'
+        cub kafka-ready -b kafka:29092 1 30
+        echo 'Criando tópicos...'
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic faturas.criadas
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic faturas.salvas
+        kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1 --topic faturas.processadas
+        echo 'Tópicos criados com sucesso!'
+      "
+
   producer:
     build:
       context: ./invoice-producer
@@ -31,7 +46,10 @@ services:
     environment:
       - KAFKA_BROKER=kafka:29092
     depends_on:
-      - kafka
+      kafka:
+        condition: service_started
+      kafka-setup:
+        condition: service_completed_successfully
 
   consumer:
     build:
@@ -41,10 +59,29 @@ services:
     environment:
       - KAFKA_BROKER=kafka:29092
     volumes:
-      - ./invoice-consumer/data:/usr/src/app/data
+      - ./shared-data:/usr/src/app/data
     depends_on:
-      - kafka
-      - producer
+      kafka:
+        condition: service_started
+      kafka-setup:
+        condition: service_completed_successfully
+
+  updater:
+    build:
+      context: ./invoice-updater
+    ports:
+      - 3003:3003
+    environment:
+      - KAFKA_BROKER=kafka:29092
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+    volumes:
+      - ./shared-data:/usr/src/app/data
+    depends_on:
+      kafka:
+        condition: service_started
+      kafka-setup:
+        condition: service_completed_successfully
 
   frontend:
     image: nginx:alpine
@@ -54,4 +91,3 @@ services:
       - ./invoice-frontend:/usr/share/nginx/html
     depends_on:
       - producer
-      - consumer

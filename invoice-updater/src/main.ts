@@ -12,17 +12,13 @@ async function bootstrap() {
         brokers: [process.env.KAFKA_BROKER || 'localhost:9092'],
       },
       consumer: {
-        groupId: 'storage-consumer-group',
-      },
-      subscribe: {
-        fromBeginning: true,
+        groupId: 'invoice-updater-group',
       },
     },
   });
-
-  app.enableCors();
+  
   await app.startAllMicroservices();
-  await app.listen(3002);
-  console.log('🚀 Storage Consumer (Bank Agent) ready on port 3002');
+  await app.listen(3003);
+  console.log('🤖 AI Invoice Updater (Consumer 2) ready on port 3003');
 }
 bootstrap();
